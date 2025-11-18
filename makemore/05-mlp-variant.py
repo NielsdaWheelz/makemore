@@ -46,8 +46,8 @@ n_hidden = 200 # the number of neurons in the hidden layer of the mlp
 C = torch.randn((n_characters, n_embeddings), generator = generator)
 W1 = torch.randn((n_embeddings * block_size, n_hidden), generator = generator)
 b1 = torch.randn((n_hidden), generator = generator)
-W2 = torch.randn((n_hidden, n_characters), generator = generator) * 0.01
-b2 = torch.randn(n_characters, generator = generator) * 0
+W2 = torch.randn((n_hidden, n_characters), generator = generator) * 0.01 # initialize the weights of the output layer to small values to prevent the output layer from saturating
+b2 = torch.randn(n_characters, generator = generator) * 0 # initialize the biases of the output layer to 0 to prevent the output layer from saturating
 parameters = [C, W1, b1, W2, b2]
 for p in parameters:
   p.requires_grad = True
@@ -91,13 +91,13 @@ plt.plot(range(max_steps), losses)
 # plt.grid('minor')
 # plt.show()
 
-# split losses into training, development, and test losses
+# split losses into training, validation, and testing losses
 @torch.no_grad()
 def split_loss(split):
   x,y = {
-    'train': (Xtr, Ytr),
+    'training': (Xtr, Ytr),
     'validation': (Xdev, Ydev),
-    'test': (Xte, Yte),
+    'testing': (Xte, Yte),
   }[split]
   embeddings = C[x] # (batch_size, block_size, n_embeddings) embeds the context of block_size characters into a n_embeddings-dimensional vector
   concatenated_embeddings = embeddings.view(embeddings.shape[0], -1) # CONCATENATE EMBEDDINGS: (batch_size, n_embeddings * block_size) concatenates the embeddings of the block_size characters into a single vector
@@ -107,9 +107,9 @@ def split_loss(split):
   loss = F.cross_entropy(logits, y) # (batch_size,) calculates the loss
   print(split, loss.item())
 
-split_loss('train')
+split_loss('training')
 split_loss('validation')
-split_loss('test')
+split_loss('testing')
 
 # sample
 generator = torch.Generator().manual_seed(2147483647 + 10)
