@@ -48,7 +48,13 @@ W1 = torch.randn((n_embeddings * block_size, n_hidden), generator = generator) *
 b1 = torch.randn((n_hidden), generator = generator) * (5 / 3) / ((n_embeddings * block_size) ** 0.5) # initialize the biases of the hidden layer to small values to prevent the hidden layer from saturating
 W2 = torch.randn((n_hidden, n_characters), generator = generator) * (5 / 3) / ((n_hidden) ** 0.5) # initialize the weights of the output layer to small values to prevent the output layer from saturating
 b2 = torch.randn(n_characters, generator = generator) * (5 / 3) / ((n_hidden) ** 0.5) # initialize the biases of the output layer to 0 to prevent the output layer from saturating
-parameters = [C, W1, b1, W2, b2]
+
+batch_normalization_gain = torch.ones((1, n_hidden))
+batch_normalization_bias = torch.zeros((1, n_hidden))
+batch_normalization_running_mean = torch.zeros((1, n_hidden))
+batch_normalization_running_std = torch.ones((1, n_hidden))
+
+parameters = [C, W1, b1, W2, b2, batch_normalization_gain, batch_normalization_bias]
 for p in parameters:
   p.requires_grad = True
 
@@ -65,6 +71,13 @@ for i in range(max_steps):
   embeddings = C[Xb] # EMBED CHARACTERS INTO VECTORS: (batch_size, block_size, n_embeddings) embeds the context of block_size characters into a n_embeddings-dimensional vector
   concatenated_embeddings = embeddings.view(embeddings.shape[0], -1) # CONCATENATE EMBEDDINGS: (batch_size, n_embeddings * block_size) concatenates the embeddings of the block_size characters into a single vector
   hidden_layer_pre_activation = concatenated_embeddings @ W1 + b1 # HIDDEN LAYER PRE-ACTIVATION: (batch_size, n_hidden) applies the weights and biases to the concatenated embeddings to get the hidden layer pre-activations
+  batch_mean = hidden_layer_pre_activation.mean(0, keepdim=True)
+  batch_std = hidden_layer_pre_activation.std(0, keepdim=True)
+  hidden_layer_pre_activation = batch_normalization_gain * (hidden_layer_pre_activation - batch_mean) / (batch_std) + batch_normalization_bias
+  # update running statistics
+  with torch.no_grad():
+    batch_normalization_running_mean = 0.999 * batch_normalization_running_mean + 0.001 * batch_mean
+    batch_normalization_running_std = 0.999 * batch_normalization_running_std + 0.001 * batch_std
   hidden_layer_activations = torch.tanh(hidden_layer_pre_activation) # HIDDEN LAYER: (batch_size, n_hidden) applies the tanh activation function to the hidden layer pre-activations to get the hidden layer activations
   logits = hidden_layer_activations @ W2 + b2 # OUTPUT LAYER: (batch_size, n_characters) applies the weights and biases to the hidden layer activations to get the logits
   loss = F.cross_entropy(logits, Yb)
@@ -108,6 +121,9 @@ def split_loss(split):
   embeddings = C[x] # (batch_size, block_size, n_embeddings) embeds the context of block_size characters into a n_embeddings-dimensional vector
   concatenated_embeddings = embeddings.view(embeddings.shape[0], -1) # CONCATENATE EMBEDDINGS: (batch_size, n_embeddings * block_size) concatenates the embeddings of the block_size characters into a single vector
   hidden_layer_pre_activation = concatenated_embeddings @ W1 + b1 # HIDDEN LAYER PRE-ACTIVATION: (batch_size, n_hidden) applies the weights and biases to the concatenated embeddings to get the hidden layer pre-activations
+  batch_mean = hidden_layer_pre_activation.mean(0, keepdim=True)
+  batch_std = hidden_layer_pre_activation.std(0, keepdim=True)
+  hidden_layer_pre_activation = batch_normalization_gain * (hidden_layer_pre_activation - batch_mean) / (batch_std) + batch_normalization_bias
   hidden_layer_activations = torch.tanh(hidden_layer_pre_activation) # HIDDEN LAYER: (batch_size, n_hidden) applies the tanh activation function to the hidden layer pre-activations to get the hidden layer activations
   logits = hidden_layer_activations @ W2 + b2 # OUTPUT LAYER: (batch_size, n_characters) applies the weights and biases to the hidden layer activations to get the logits
   loss = F.cross_entropy(logits, y) # (batch_size,) calculates the loss
@@ -126,6 +142,7 @@ for _ in range(20):
   while True:
     embeddings = C[torch.tensor([context])] # usually we're working with the size of the training set, but here we're working with a single example, so '1' is the batch size (1, block_size, embedding_dim)
     hidden_layer_pre_activation = embeddings.view(1, -1) @ W1 + b1 # HIDDEN LAYER PRE-ACTIVATION: (1, n_hidden) applies the weights and biases to the concatenated embeddings to get the hidden layer pre-activations
+    hidden_layer_pre_activation = batch_normalization_gain * (hidden_layer_pre_activation - batch_normalization_running_mean) / (batch_normalization_running_std) + batch_normalization_bias
     hidden_layer_activations = torch.tanh(hidden_layer_pre_activation) # HIDDEN LAYER: (1, n_hidden) applies the tanh activation function to the hidden layer pre-activations to get the hidden layer activations
     logits = hidden_layer_activations @ W2 + b2 # OUTPUT LAYER: (1, n_characters) applies the weights and biases to the hidden layer activations to get the logits
     probabilities = F.softmax(logits, dim=1)
