@@ -44,8 +44,8 @@ n_embeddings = 10 # the dimensionality of the character embedding vectors
 n_hidden = 200 # the number of neurons in the hidden layer of the mlp
 
 C = torch.randn((n_characters, n_embeddings), generator = generator)
-W1 = torch.randn((n_embeddings * block_size, n_hidden), generator = generator)
-b1 = torch.randn((n_hidden), generator = generator)
+W1 = torch.randn((n_embeddings * block_size, n_hidden), generator = generator) * 0.2 # initialize the weights of the hidden layer to small values to prevent the hidden layer from saturating
+b1 = torch.randn((n_hidden), generator = generator) * 0.02 # initialize the biases of the hidden layer to small values to prevent the hidden layer from saturating
 W2 = torch.randn((n_hidden, n_characters), generator = generator) * 0.01 # initialize the weights of the output layer to small values to prevent the output layer from saturating
 b2 = torch.randn(n_characters, generator = generator) * 0 # initialize the biases of the output layer to 0 to prevent the output layer from saturating
 parameters = [C, W1, b1, W2, b2]
@@ -65,10 +65,10 @@ for i in range(max_steps):
   embeddings = C[Xb] # EMBED CHARACTERS INTO VECTORS: (batch_size, block_size, n_embeddings) embeds the context of block_size characters into a n_embeddings-dimensional vector
   concatenated_embeddings = embeddings.view(embeddings.shape[0], -1) # CONCATENATE EMBEDDINGS: (batch_size, n_embeddings * block_size) concatenates the embeddings of the block_size characters into a single vector
   hidden_layer_pre_activation = concatenated_embeddings @ W1 + b1 # HIDDEN LAYER PRE-ACTIVATION: (batch_size, n_hidden) applies the weights and biases to the concatenated embeddings to get the hidden layer pre-activations
-  h = torch.tanh(hidden_layer_pre_activation) # HIDDEN LAYER: (batch_size, n_hidden) applies the tanh activation function to the hidden layer pre-activations to get the hidden layer activations
-  logits = h @ W2 + b2 # OUTPUT LAYER: (batch_size, n_characters) applies the weights and biases to the hidden layer activations to get the logits
+  hidden_layer_activations = torch.tanh(hidden_layer_pre_activation) # HIDDEN LAYER: (batch_size, n_hidden) applies the tanh activation function to the hidden layer pre-activations to get the hidden layer activations
+  logits = hidden_layer_activations @ W2 + b2 # OUTPUT LAYER: (batch_size, n_characters) applies the weights and biases to the hidden layer activations to get the logits
   loss = F.cross_entropy(logits, Yb)
-
+  # break
   # backward pass
   for p in parameters:
     p.grad = None
@@ -83,7 +83,13 @@ for i in range(max_steps):
     print(f'{i:7d}/{max_steps:7d} loss {loss.item():.4f}')
   losses.append(loss.log10().item())
 
-plt.plot(range(max_steps), losses)
+# plt.hist(hidden_layer_activations.view(-1).tolist(), bins=50)
+# plt.show()
+
+# plt.hist(hidden_layer_pre_activation.view(-1).tolist(), bins=50)
+# plt.show()
+
+# plt.plot(range(max_steps), losses)
 # plt.figure(figsize=(8, 8))
 # plt.scatter(C[:,0].data, C[:,1].data, s=200)
 # for i in range(C.shape[0]):
