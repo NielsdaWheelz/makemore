@@ -44,10 +44,10 @@ n_embeddings = 10 # the dimensionality of the character embedding vectors
 n_hidden = 200 # the number of neurons in the hidden layer of the mlp
 
 C = torch.randn((n_characters, n_embeddings), generator = generator)
-W1 = torch.randn((n_embeddings * block_size, n_hidden), generator = generator) * 0.2 # initialize the weights of the hidden layer to small values to prevent the hidden layer from saturating
-b1 = torch.randn((n_hidden), generator = generator) * 0.02 # initialize the biases of the hidden layer to small values to prevent the hidden layer from saturating
-W2 = torch.randn((n_hidden, n_characters), generator = generator) * 0.01 # initialize the weights of the output layer to small values to prevent the output layer from saturating
-b2 = torch.randn(n_characters, generator = generator) * 0 # initialize the biases of the output layer to 0 to prevent the output layer from saturating
+W1 = torch.randn((n_embeddings * block_size, n_hidden), generator = generator) * (5 / 3) / ((n_embeddings * block_size) ** 0.5) # initialize the weights of the hidden layer to small values to prevent the hidden layer from saturating
+b1 = torch.randn((n_hidden), generator = generator) * (5 / 3) / ((n_embeddings * block_size) ** 0.5) # initialize the biases of the hidden layer to small values to prevent the hidden layer from saturating
+W2 = torch.randn((n_hidden, n_characters), generator = generator) * (5 / 3) / ((n_hidden) ** 0.5) # initialize the weights of the output layer to small values to prevent the output layer from saturating
+b2 = torch.randn(n_characters, generator = generator) * (5 / 3) / ((n_hidden) ** 0.5) # initialize the biases of the output layer to 0 to prevent the output layer from saturating
 parameters = [C, W1, b1, W2, b2]
 for p in parameters:
   p.requires_grad = True
